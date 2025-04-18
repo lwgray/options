@@ -1,0 +1,14 @@
+# Core dependencies
+torch>=2.0.0
+numpy>=1.20.0
+matplotlib>=3.5.0
+h5py>=3.6.0
+tqdm>=4.62.0
+accelerate>=0.19.0
+
+# QuantLib for option pricing
+QuantLib>=1.28
+
+# Poseidon dependencies - these are handled when installing Poseidon
+# transformers>=4.25.0
+# huggingface_hub>=0.12.0

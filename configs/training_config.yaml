@@ -1,0 +1,23 @@
+# Training configuration for finetuning Poseidon on American options
+# This configuration can be used with the command line approach
+
+# Dataset
+dataset: "american_options"
+num_trajectories: -1  # Use all available trajectories
+
+# Model architecture
+model_name: "B"  # Options: T (tiny), B (base), L (large)
+
+# Training hyperparameters
+batch_size: 16
+num_epochs: 50
+lr: 5e-5
+lr_embedding_recovery: 5e-4
+lr_time_embedding: 5e-4
+weight_decay: 1e-6
+lr_scheduler: "cosine"
+warmup_ratio: 0.1
+max_grad_norm: 1.0
+
+# Early stopping
+early_stopping_patience: 10
