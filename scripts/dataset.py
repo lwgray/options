@@ -4,15 +4,6 @@ import os
 import json
 from torch.utils.data import Dataset, DataLoader
 
-# Wrap tensor operations that might fail on MPS
-def to_device(tensor):
-    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-    try:
-        return tensor.to(device)
-    except RuntimeError as e:
-        if "only available on CPU" in str(e):
-            return tensor.cpu()  # Keep it on CPU
-        raise  # Re-raise other errors
 
 class AmericanOptionDataset(Dataset):
     """Dataset for American option pricing"""
@@ -49,19 +40,14 @@ class AmericanOptionDataset(Dataset):
         input_data = np.load(os.path.join(sample_dir, 'input.npy'))
         output_data = np.load(os.path.join(sample_dir, 'output.npy'))
 
-
-        device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-
         # Convert to tensors
-        input_tensor = torch.from_numpy(input_data).float()
-        input_tensor = to_device(input_tensor)
-        output_tensor = torch.from_numpy(output_data).float()
-        output_tensor = to_device(output_tensor)
+        input_tensor = torch.from_numpy(input_data).float().cpu()
+        output_tensor = torch.from_numpy(output_data).float().cpu()
         time = 1.0
 
         return {'pixel_values': input_tensor,
                 'labels': output_tensor,
-                'time': to_device(torch.tensor([time], dtype=torch.float))
+                'time': torch.tensor([time], dtype=torch.float).cpu()
                 }
     
 def get_dataloaders(data_dir, batch_size=16, num_workers=4):

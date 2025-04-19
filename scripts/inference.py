@@ -74,16 +74,6 @@ def plot_result(input_data, true_output, pred_output, metadata, output_path):
     
     return error
 
-# Wrap tensor operations that might fail on MPS
-def to_device(tensor):
-    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-    try:
-        return tensor.to(device)
-    except RuntimeError as e:
-        if "only available on CPU" in str(e):
-            return tensor.cpu()  # Keep it on CPU
-        raise  # Re-raise other errors
-
 def main():
     device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
@@ -97,7 +87,7 @@ def main():
     
     # Load model
     model = ScOT.from_pretrained(args.model_dir)
-    model = to_device(model)
+    model = model.to(device)
     model.eval()
     
     # Select samples to visualize

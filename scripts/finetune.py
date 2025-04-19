@@ -65,15 +65,6 @@ def compute_metrics(eval_preds):
         "max_relative_l1_error": max_error,
     }
 
-# Wrap tensor operations that might fail on MPS
-def to_device(tensor):
-    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-    try:
-        return tensor.to(device)
-    except RuntimeError as e:
-        if "only available on CPU" in str(e):
-            return tensor.cpu()  # Keep it on CPU
-        raise  # Re-raise other errors
 
 def main():
     args = parse_args()
@@ -114,7 +105,7 @@ def main():
     )
 
     # Move model to device
-    model = to_device(model)
+    model = model.to(device)
     
     print(f"Model loaded: {model_config.num_channels} input channels, {model_config.num_out_channels} output channels")
     
