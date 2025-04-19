@@ -74,7 +74,19 @@ def plot_result(input_data, true_output, pred_output, metadata, output_path):
     
     return error
 
+# Wrap tensor operations that might fail on MPS
+def to_device(tensor):
+    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    try:
+        return tensor.to(device)
+    except RuntimeError as e:
+        if "only available on CPU" in str(e):
+            return tensor.cpu()  # Keep it on CPU
+        raise  # Re-raise other errors
+
 def main():
+    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+
     args = parse_args()
     
     # Create output directory
@@ -85,6 +97,7 @@ def main():
     
     # Load model
     model = ScOT.from_pretrained(args.model_dir)
+    model = to_device(model)
     model.eval()
     
     # Select samples to visualize
@@ -97,7 +110,7 @@ def main():
     errors = []
     for i, idx in enumerate(sample_indices):
         sample = dataset[idx]
-        input_tensor = sample['pixel_values'].unsqueeze(0)  # Add batch dimension
+        input_tensor = sample['pixel_values'].unsqueeze(0) # Add batch dimension
         time_tensor = sample['time'].unsqueeze(0)
         
         # Get metadata

@@ -65,6 +65,16 @@ def compute_metrics(eval_preds):
         "max_relative_l1_error": max_error,
     }
 
+# Wrap tensor operations that might fail on MPS
+def to_device(tensor):
+    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    try:
+        return tensor.to(device)
+    except RuntimeError as e:
+        if "only available on CPU" in str(e):
+            return tensor.cpu()  # Keep it on CPU
+        raise  # Re-raise other errors
+
 def main():
     args = parse_args()
     
@@ -89,6 +99,11 @@ def main():
     # Create model configuration
     model_config = get_american_option_config(grid_size=args.grid_size, model_size=args.model_size)
     
+    # Set device
+    mps_available = hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()
+    device = torch.device("mps" if mps_available else "cpu")
+    print(f"Using device: {device}")
+    
     # Load pretrained model
     pretrained_model_name = f"camlab-ethz/Poseidon-{args.model_size}"
     print(f"Loading pretrained model: {pretrained_model_name}")
@@ -97,11 +112,15 @@ def main():
         config=model_config,
         ignore_mismatched_sizes=True
     )
+
+    # Move model to device
+    model = to_device(model)
     
     print(f"Model loaded: {model_config.num_channels} input channels, {model_config.num_out_channels} output channels")
     
     # Configure training
     training_args = TrainingArguments(
+        use_mps_device=mps_available,
         output_dir=args.output_dir,
         learning_rate=args.lr,
         learning_rate_embedding_recovery=args.lr_embedding,
