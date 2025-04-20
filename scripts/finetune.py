@@ -33,6 +33,9 @@ def parse_args():
                         help='Number of dataloader workers')
     parser.add_argument('--seed', type=int, default=42,
                         help='Random seed')
+    parser.add_argument('--report_to', type=str, default='none',
+                        choices=['none', 'wandb', 'tensorboard', 'all'],
+                        help='Where to report training metrics')
     
     return parser.parse_args()
 
@@ -128,7 +131,7 @@ def main():
         greater_is_better=False,
         save_total_limit=3,
         dataloader_num_workers=args.num_workers,
-        report_to="none",  # Disable wandb reporting if you don't need it
+        report_to=args.report_to,
     )
     
     # Create trainer

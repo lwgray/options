@@ -100,8 +100,8 @@ def main():
     errors = []
     for i, idx in enumerate(sample_indices):
         sample = dataset[idx]
-        input_tensor = sample['pixel_values'].unsqueeze(0) # Add batch dimension
-        time_tensor = sample['time'].unsqueeze(0)
+        input_tensor = sample['pixel_values'].unsqueeze(0).to(device) # Add batch dimension
+        time_tensor = sample['time'].unsqueeze(0).to(device)
         
         # Get metadata
         sample_dir = os.path.join(args.data_dir, dataset.samples[idx])
@@ -113,9 +113,9 @@ def main():
             output = model(pixel_values=input_tensor, time=time_tensor)
         
         # Convert to numpy for plotting
-        input_np = input_tensor.squeeze(0).numpy()
-        true_output_np = sample['labels'].numpy()
-        pred_output_np = output.output.squeeze(0).numpy()
+        input_np = input_tensor.squeeze(0).cpu().numpy()
+        true_output_np = sample['labels'].cpu().numpy()
+        pred_output_np = output.output.squeeze(0).cpu().numpy()
         
         # Plot and save
         output_path = os.path.join(args.output_dir, f'sample_{idx:04d}.png')

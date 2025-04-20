@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
+from tqdm import tqdm
 
 def generate_american_option_data(num_samples=100, grid_size=64):
     """
@@ -36,7 +37,7 @@ def generate_american_option_data(num_samples=100, grid_size=64):
     day_counter = ql.Actual365Fixed()
     
     # Generate random option scenarios
-    for _ in range(num_samples):
+    for _ in tqdm(range(num_samples), desc="Generating options", unit="sample"):
         # Random parameters (within reasonable ranges)
         strike = np.random.uniform(80.0, 120.0)
         spot = np.random.uniform(70.0, 130.0)
@@ -196,7 +197,7 @@ def load_dataset(filename='american_option_dataset'):
 if __name__ == "__main__":
     # Generate a dataset
     print("Generating American option dataset...")
-    inputs, solutions = generate_american_option_data(num_samples=100, grid_size=64)
+    inputs, solutions = generate_american_option_data(num_samples=2048, grid_size=64)
     
     # Plot a sample
     fig = plot_sample(inputs, solutions)
