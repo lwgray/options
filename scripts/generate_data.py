@@ -197,7 +197,7 @@ def load_dataset(filename='american_option_dataset'):
 if __name__ == "__main__":
     # Generate a dataset
     print("Generating American option dataset...")
-    inputs, solutions = generate_american_option_data(num_samples=2048, grid_size=64)
+    inputs, solutions = generate_american_option_data(num_samples=100, grid_size=64)
     
     # Plot a sample
     fig = plot_sample(inputs, solutions)

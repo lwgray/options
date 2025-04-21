@@ -7,13 +7,34 @@ from scOT.model import ScOT
 from scOT.trainer import TrainingArguments, Trainer
 from scOT.metrics import relative_lp_error
 
+def check_mps_availability():
+    """Check if MPS is available and set device accordingly"""
+    if not hasattr(torch.backends, 'mps'):
+        print("MPS is not available - Pytorch build doesn't include MPS support")
+        return False
+    if not torch.backends.mps.is_available():
+        print("MPS is not available - your device does not support it")
+        return False
+    if not torch.backends.mps.is_built():
+        print("PyTorch was compiled without MPS support")
+        return False
+    
+    try:
+        test_tensor = torch.ones(1).to('mps')
+        result = test_tensor * 2
+        print("MPS is available and working! Using Apple Silicon GPU acceleration.")
+        return True
+    except Exception as e:
+        print(f"MPS is available but encountered an error in testing: {e}")
+        return False
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Finetune Poseidon for American options')
     parser.add_argument('--data_dir', type=str, default='poseidon_data',
                         help='Directory containing the formatted Poseidon data')
     parser.add_argument('--output_dir', type=str, default='models/american_options',
                         help='Directory to save model checkpoints')
-    parser.add_argument('--model_size', type=str, default='B',
+    parser.add_argument('--model_size', type=str, default='T',
                         choices=['T', 'B', 'L'], help='Poseidon model size')
     parser.add_argument('--grid_size', type=int, default=64,
                         help='Grid size for input/output data')
@@ -94,7 +115,7 @@ def main():
     model_config = get_american_option_config(grid_size=args.grid_size, model_size=args.model_size)
     
     # Set device
-    mps_available = hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()
+    mps_available = check_mps_availability()
     device = torch.device("mps" if mps_available else "cpu")
     print(f"Using device: {device}")
     
@@ -109,6 +130,10 @@ def main():
 
     # Move model to device
     model = model.to(device)
+
+    # Verify model device
+    first_param_device = next(model.parameters()).device
+    print(f"Model is on device: {first_param_device}")
     
     print(f"Model loaded: {model_config.num_channels} input channels, {model_config.num_out_channels} output channels")
     
@@ -127,7 +152,7 @@ def main():
         num_train_epochs=args.epochs,
         weight_decay=args.weight_decay,
         load_best_model_at_end=True,
-        metric_for_best_model="mean_relative_l1_error",
+        metric_for_best_model="median_relative_l1_error",
         greater_is_better=False,
         save_total_limit=3,
         dataloader_num_workers=args.num_workers,

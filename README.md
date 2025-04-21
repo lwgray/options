@@ -84,7 +84,7 @@ Finetune the Poseidon model on American options data:
 
 ```bash
 python scripts/finetune.py \
-    --data_dir poseidon_data \
+    --data_dir data/poseidon_data \
     --output_dir models/american_options \
     --model_size B \
     --batch_size 16 \
@@ -98,7 +98,7 @@ accelerate launch poseidon/scOT/train.py \
     --config configs/training_config.yaml \
     --wandb_run_name "american_options_finetuning" \
     --checkpoint_path models \
-    --data_path poseidon_data \
+    --data_path data/poseidon_data \
     --finetune_from "camlab-ethz/Poseidon-B" \
     --replace_embedding_recovery
 ```

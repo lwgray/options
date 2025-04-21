@@ -8,11 +8,12 @@ from torch.utils.data import Dataset, DataLoader
 class AmericanOptionDataset(Dataset):
     """Dataset for American option pricing"""
 
-    def __init__(self, data_dir, split='train'):
+    def __init__(self, data_dir, split='train', max_samples_pct=1.0):
         """
         Args:
             data_dir (str): Directory with all the data
             split (str): Split to load ('train', 'val', 'test')
+            max_samples_pct (float): Maximum percentage of samples to load
         """
         self.data_dir = data_dir
         
@@ -21,6 +22,10 @@ class AmericanOptionDataset(Dataset):
             splits = json.load(f)
 
         self.samples = splits[split]
+
+        # Limit number of samples if specified
+        if max_samples_pct < 1.0:
+            self.samples = self.samples[:int(len(self.samples) * max_samples_pct)]
 
     def __len__(self):
         return len(self.samples)

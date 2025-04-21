@@ -1,0 +1,1 @@
+{"weight_decay": 1e-06, "lr_scheduler": "cosine", "epochs": 50, "early_stopping_patience": 10, "model_size": "B", "grid_size": 64, "output_dir": "models/american_options_sweep", "data_dir": "data/poseidon_data", "num_workers": 1, "seed": 42, "max_samples_pct": 0.1, "lr": 5e-05, "lr_embedding": 0.0005, "lr_time": 0.0005, "batch_size": 16, "warmup_ratio": 0.0}
