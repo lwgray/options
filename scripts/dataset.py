@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 class AmericanOptionDataset(Dataset):
     """Dataset for American option pricing"""
 
-    def __init__(self, data_dir, split='train', all2all=True):
+    def __init__(self, data_dir, split='train'):
         """
         Args:
             data_dir (str): Directory with all the data
@@ -16,7 +16,6 @@ class AmericanOptionDataset(Dataset):
             all2all (bool): Whether to return all time steps for all2all training
         """
         self.data_dir = data_dir
-        self.all2all = all2all
 
         # Load split information
         with open(os.path.join(data_dir, 'splits.json'), 'r') as f:
@@ -33,51 +32,24 @@ class AmericanOptionDataset(Dataset):
             idx (int): Index
 
         Returns:
-            dict: When all2all=True, returns all time steps for the sample
-                  When all2all=False, returns just the initial and final states
+            dict: (pixel_values, labels, time)
         """
         sample_dir = os.path.join(self.data_dir, self.samples[idx])
 
-        if self.all2all:
-            # Load all available time steps for this sample
-            #This implementation assumes you have timesteps stored in separate files
-            # Adapt this to your storage format
+        # Load input and output
+    
+        input_data = np.load(os.path.join(sample_dir, 'input.npy'))
+        output_data = np.load(os.path.join(sample_dir, 'output.npy'))
 
-            time_steps = []
-            inputs = []
+        # Convert to tensors
+        input_tensor = torch.from_numpy(input_data).float().cpu()
+        output_tensor = torch.from_numpy(output_data).float().cpu()
+        time = 1.0
 
-            # Assume time steps are stored in files named t_0.npy, t_1.npy, etc.
-            time_files = sorted(glob.glob(os.path.join(sample_dir, 't_*.npy')))
-
-            for time_file in time_files:
-                time_step = float(time_file.split('_')[-1].split('.')[0])
-                data = np.load(os.path.join(sample_dir, time_file))
-
-                time_steps.append(time_step)
-                inputs.append(torch.from_numpy(data).float())
-            
-            input_tensor = torch.stack(inputs)
-            time_tensor = torch.tensor(time_steps, dtype=torch.float)
-
-            return {
-                'pixel_values': input_tensor,
-                'time': time_tensor
-            }
-        else:
-            # Load input and output
-        
-            input_data = np.load(os.path.join(sample_dir, 'input.npy'))
-            output_data = np.load(os.path.join(sample_dir, 'output.npy'))
-
-            # Convert to tensors
-            input_tensor = torch.from_numpy(input_data).float().cpu()
-            output_tensor = torch.from_numpy(output_data).float().cpu()
-            time = 1.0
-
-            return {'pixel_values': input_tensor,
-                    'labels': output_tensor,
-                    'time': torch.tensor([time], dtype=torch.float).cpu()
-                    }
+        return {'pixel_values': input_tensor,
+                'labels': output_tensor,
+                'time': torch.tensor([time], dtype=torch.float).cpu()
+                }
     
 def get_dataloaders(data_dir, batch_size=16, num_workers=4):
     """Create dataloaders for training, validation, and testing"""

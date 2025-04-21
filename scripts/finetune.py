@@ -73,20 +73,9 @@ def compute_metrics(eval_preds):
 
 def train_with_all2all_strategy(model, train_loader, val_loader, optimizer, device, epochs, output_dir):
     """
-    Train the model using the all2all strategy where we create multiple time pairs
-    from each trajectory for more efficient learning.
-    
-    Args:
-        model: The neural network model
-        train_loader: DataLoader for training data
-        val_loader: DataLoader for validation data
-        optimizer: PyTorch optimizer
-        device: Device to train on
-        epochs: Number of training epochs
-        output_dir: Directory to save checkpoints
-        
-    Returns:
-        Trained model
+    Train the model using the all2all strategy for American options.
+    For American options, the grid already has a time dimension, so we can
+    extract sub-grids for different time points.
     """
     import time
     from tqdm import tqdm
@@ -105,67 +94,62 @@ def train_with_all2all_strategy(model, train_loader, val_loader, optimizer, devi
         progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} [Train]")
         for batch in progress_bar:
             # Extract data
-            input_tensor = batch['pixel_values'].to(device)  # Shape: [B, C, H, W]
-            output_tensor = batch['labels'].to(device)       # Shape: [B, C, H, W]
+            input_tensor = batch['pixel_values'].to(device)  # Shape: [B, 4, H, W]
+            output_tensor = batch['labels'].to(device)       # Shape: [B, 1, H, W]
             
-            # For all2all strategy, we consider all combinations of timesteps
-            # In this simplified version, we're using the initial and final state
-            # and creating intermediate states through interpolation
+            batch_size, channels, height, width = input_tensor.shape
             
-            # Generate multiple timesteps (e.g., 5 steps)
-            num_steps = 5
-            timesteps = torch.linspace(0.0, 1.0, num_steps).to(device)
+            # For options, the time dimension is the second dimension of the grid
+            # Sample different time ranges from the grid
             
-            # Create interpolated states for each timestep
-            states = []
-            for t in timesteps:
-                # Linear interpolation between input and output
-                state = (1-t) * input_tensor + t * output_tensor
-                states.append(state)
-            
-            # Process all combinations of timesteps (i, j) where i < j
+            optimizer.zero_grad()
             batch_loss = 0.0
-            pair_count = 0
+            num_pairs = 3  # Number of time pairs to sample per batch
             
-            for i in range(num_steps-1):
-                for j in range(i+1, num_steps):
-                    # Get states at time i and j
-                    state_i = states[i]
-                    state_j = states[j]
-                    
-                    # Calculate time difference for model
-                    time_diff = timesteps[j] - timesteps[i]
-                    
-                    # Forward pass: predict from time i to time j
-                    outputs = model(
-                        pixel_values=state_i,
-                        time=time_diff.expand(input_tensor.size(0), 1)
-                    )
-                    
-                    # Calculate loss (relative L1)
-                    epsilon = 1e-10  # Prevent division by zero
-                    pred = outputs.output
-                    diff = torch.abs(pred - state_j)
-                    denom = torch.abs(state_j) + epsilon
-                    loss = torch.mean(diff / denom)
-                    
-                    batch_loss += loss
-                    pair_count += 1
+            for _ in range(num_pairs):
+                # Sample random time points t1 and t2 where t2 > t1
+                t1 = torch.randint(0, height//2, (1,)).item()  # Start from earlier time
+                t2 = torch.randint(t1 + height//4, height, (1,)).item()  # End at later time
+                
+                # Extract 2D slices at times t1 and t2
+                # These are square patches from the grid
+                sub_size = min(width, height//4)  # Size of the sub-grid
+                
+                # Random starting positions
+                start_x = torch.randint(0, width - sub_size, (1,)).item()
+                
+                # Extract sub-grids
+                inputs_t1 = input_tensor[:, :, t1:t1+sub_size, start_x:start_x+sub_size]
+                targets_t2 = output_tensor[:, :, t2:t2+sub_size, start_x:start_x+sub_size]
+                
+                # Calculate normalized time difference
+                time_diff = torch.tensor([float(t2 - t1) / height], device=device).expand(batch_size, 1)
+                
+                # Forward pass
+                outputs = model(pixel_values=inputs_t1, time=time_diff)
+                
+                # Calculate loss (relative L1)
+                epsilon = 1e-10  # Prevent division by zero
+                pred = outputs.output
+                diff = torch.abs(pred - targets_t2)
+                denom = torch.abs(targets_t2) + epsilon
+                loss = torch.mean(diff / denom)
+                
+                # Accumulate loss
+                batch_loss += loss
             
             # Average loss over all pairs
-            if pair_count > 0:
-                avg_loss = batch_loss / pair_count
-                
-                # Backward pass
-                optimizer.zero_grad()
-                avg_loss.backward()
-                optimizer.step()
-                
-                train_loss += avg_loss.item()
-                batch_count += 1
-                
-                # Update progress bar
-                progress_bar.set_postfix({"loss": avg_loss.item()})
+            avg_loss = batch_loss / num_pairs
+            
+            # Backward pass
+            avg_loss.backward()
+            optimizer.step()
+            
+            train_loss += avg_loss.item()
+            batch_count += 1
+            
+            # Update progress bar
+            progress_bar.set_postfix({"loss": avg_loss.item()})
         
         # Calculate average training loss
         avg_train_loss = train_loss / batch_count if batch_count > 0 else 0
@@ -252,10 +236,16 @@ def main():
     # Create model configuration
     model_config = get_american_option_config(grid_size=args.grid_size, model_size=args.model_size)
     
-    # Set device
-    mps_available = hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()
-    device = torch.device("mps" if mps_available else "cpu")
-    print(f"Using device: {device}")
+   
+    if args.use_all2all:
+        # Use CPU for all2all training since MPS doesn't support complex numbers
+        device = torch.device("cpu")
+        print(f"Using CPU for all2all training (complex numbers not supported on MPS)")
+    else:
+        # Use MPS if available
+        mps_available = hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()
+        device = torch.device("mps" if mps_available else "cpu")
+        print(f"Using device: {device}")
     
     # Load pretrained model
     pretrained_model_name = f"camlab-ethz/Poseidon-{args.model_size}"
@@ -290,11 +280,18 @@ def main():
             num_workers=args.num_workers
         )
         
+        # Create parameter groups with non-overlapping conditions
+        embedding_params = [p for n, p in model.named_parameters() if 'embeddings' in n or 'patch_recovery' in n]
+        norm_params = [p for n, p in model.named_parameters() if '.norm' in n and not ('embeddings' in n or 'patch_recovery' in n)]
+        # Get remaining parameters that don't belong to the above groups
+        other_params = [p for n, p in model.named_parameters() 
+                        if not ('embeddings' in n or 'patch_recovery' in n or '.norm' in n)]
+
         # Create optimizer with parameter groups
         optimizer = torch.optim.AdamW([
-            {'params': [p for n, p in model.named_parameters() if not ('embeddings' in n or 'patch_recovery' in n or '.norm' in n)], 'lr': args.lr},
-            {'params': [p for n, p in model.named_parameters() if 'embeddings' in n or 'patch_recovery' in n], 'lr': args.lr_embedding},
-            {'params': [p for n, p in model.named_parameters() if '.norm' in n], 'lr': args.lr_time}
+            {'params': other_params, 'lr': args.lr},
+            {'params': embedding_params, 'lr': args.lr_embedding},
+            {'params': norm_params, 'lr': args.lr_time}
         ], weight_decay=args.weight_decay)
         
         # Train with all2all strategy
