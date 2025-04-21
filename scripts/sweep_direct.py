@@ -90,10 +90,10 @@ def run_training(config, args, run_dir, logfile, run_index, total_runs):
         print(f"Validation samples: {len(val_dataset)}")
         
         # Create model configuration
-        model_config = get_american_option_config(grid_size=64, model_size="B")
+        model_config = get_american_option_config(grid_size=64, model_size="L")
         
         # Load pretrained model
-        pretrained_model_name = "camlab-ethz/Poseidon-B"
+        pretrained_model_name = "camlab-ethz/Poseidon-L"
         print(f"Loading pretrained model: {pretrained_model_name}")
         model = ScOT.from_pretrained(
             pretrained_model_name,
@@ -131,7 +131,32 @@ def run_training(config, args, run_dir, logfile, run_index, total_runs):
             eval_dataset=val_dataset,
             compute_metrics=compute_metrics,
         )
+
+        if args.report_to == "wandb" or args.report_to == "all":
+            import wandb
+            
+            # Initialize a new wandb run or ensure we're in one
+            if wandb.run is None:
+                wandb.init(project="american_options")
+            
+            # Log all configuration parameters explicitly
+            wandb.config.update({
+                "lr": config["lr"],
+                "lr_embedding": config["lr_embedding"],
+                "lr_time": config["lr_time"],
+                "batch_size": config["batch_size"],
+                "warmup_ratio": config.get("warmup_ratio", 0.0),
+                "model_size": "B",
+                "grid_size": 64,
+                "epochs": 50,
+                "weight_decay": 1e-6,
+                "run_index": run_index,
+                "total_runs": total_runs,
+            })
         
+        # Set a meaningful run name
+        wandb.run.name = f"run_{run_index}_lr{config['lr']}_emb{config['lr_embedding']}_batch{config['batch_size']}"
+            
         # Start training
         print(f"Starting training for 50 epochs")
         trainer.train()
@@ -224,7 +249,7 @@ def main():
         
         # Force garbage collection to free memory
         gc.collect()
-        if torch.mps.is_available():
+        if hasattr(torch, 'mps') and torch.backends.mps.is_available():
             torch.mps.empty_cache()
         
         # Wait a bit between runs to ensure resources are freed

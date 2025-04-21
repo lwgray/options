@@ -6,4 +6,4 @@ models/
 wandb/
 /viz
 *.npz
-
+data/poseidon_data/viz/
