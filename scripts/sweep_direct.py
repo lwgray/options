@@ -79,21 +79,45 @@ def run_training(config, args, run_dir, logfile, run_index, total_runs):
     print(f"Output directory: {run_dir}")
     start_time = time.time()
     
+    # Initialize wandb if using it
+    if args.report_to == "wandb" or args.report_to == "all":
+        import wandb
+        
+        # Make sure any previous run is finished
+        if wandb.run is not None:
+            wandb.finish()
+        
+        # Start a new run with a unique name
+        run_name = f"run_{run_index}_lr{config['lr']}_emb{config['lr_embedding']}_batch{config['batch_size']}"
+        wandb.init(project="american_options", name=run_name, config={
+            "lr": config["lr"],
+            "lr_embedding": config["lr_embedding"],
+            "lr_time": config["lr_time"],
+            "batch_size": config["batch_size"],
+            "warmup_ratio": config.get("warmup_ratio", 0.0),
+            "model_size": "T",  # Changed from "B" to match the model being loaded
+            "grid_size": 64,
+            "epochs": 25,
+            "weight_decay": 1e-6,
+            "run_index": run_index,
+            "total_runs": total_runs,
+        })
+    
     try:
         # Load datasets - you only need to do this once if the datasets are the same for all runs
         print(f"Loading datasets from {args.data_dir}")
-        train_dataset = AmericanOptionDataset(args.data_dir, split='train', max_samples_pct=args.max_samples_pct)
-        val_dataset = AmericanOptionDataset(args.data_dir, split='val', max_samples_pct=args.max_samples_pct)
-        test_dataset = AmericanOptionDataset(args.data_dir, split='test', max_samples_pct=args.max_samples_pct)
+        train_dataset = AmericanOptionDataset(args.data_dir, split='train')
+        val_dataset = AmericanOptionDataset(args.data_dir, split='val')
+        test_dataset = AmericanOptionDataset(args.data_dir, split='test')
         
         print(f"Training samples: {len(train_dataset)}")
         print(f"Validation samples: {len(val_dataset)}")
         
         # Create model configuration
-        model_config = get_american_option_config(grid_size=64, model_size="L")
+        model_config = get_american_option_config(grid_size=64, model_size="T")
         
         # Load pretrained model
-        pretrained_model_name = "camlab-ethz/Poseidon-L"
+        pretrained_model_name = "camlab-ethz/Poseidon-T"
         print(f"Loading pretrained model: {pretrained_model_name}")
         model = ScOT.from_pretrained(
             pretrained_model_name,
@@ -112,10 +136,10 @@ def run_training(config, args, run_dir, logfile, run_index, total_runs):
             gradient_accumulation_steps=1,
             evaluation_strategy="epoch",
             save_strategy="epoch",
-            num_train_epochs=50,
+            num_train_epochs=25,
             weight_decay=1e-6,
             load_best_model_at_end=True,
-            metric_for_best_model="mean_relative_l1_error",
+            metric_for_best_model="median_relative_l1_error",
             greater_is_better=False,
             save_total_limit=3,
             dataloader_num_workers=1,
@@ -131,34 +155,9 @@ def run_training(config, args, run_dir, logfile, run_index, total_runs):
             eval_dataset=val_dataset,
             compute_metrics=compute_metrics,
         )
-
-        if args.report_to == "wandb" or args.report_to == "all":
-            import wandb
-            
-            # Initialize a new wandb run or ensure we're in one
-            if wandb.run is None:
-                wandb.init(project="american_options")
-            
-            # Log all configuration parameters explicitly
-            wandb.config.update({
-                "lr": config["lr"],
-                "lr_embedding": config["lr_embedding"],
-                "lr_time": config["lr_time"],
-                "batch_size": config["batch_size"],
-                "warmup_ratio": config.get("warmup_ratio", 0.0),
-                "model_size": "B",
-                "grid_size": 64,
-                "epochs": 50,
-                "weight_decay": 1e-6,
-                "run_index": run_index,
-                "total_runs": total_runs,
-            })
         
-        # Set a meaningful run name
-        wandb.run.name = f"run_{run_index}_lr{config['lr']}_emb{config['lr_embedding']}_batch{config['batch_size']}"
-            
         # Start training
-        print(f"Starting training for 50 epochs")
+        print(f"Starting training for 25 epochs")
         trainer.train()
         
         # Save final model
@@ -191,6 +190,12 @@ def run_training(config, args, run_dir, logfile, run_index, total_runs):
         print(f"Run completed successfully in {duration:.2f} seconds")
         print(f"Test results: {test_results}")
         
+        # Finish the wandb run if using it
+        if args.report_to == "wandb" or args.report_to == "all":
+            import wandb
+            if wandb.run is not None:
+                wandb.finish()
+        
         return True
         
     except Exception as e:
@@ -205,6 +210,13 @@ def run_training(config, args, run_dir, logfile, run_index, total_runs):
             f.write(f"Error: {str(e)}\n")
         
         print(f"Run failed with error: {e}")
+        
+        # Make sure to finish the wandb run even if there's an error
+        if args.report_to == "wandb" or args.report_to == "all":
+            import wandb
+            if wandb.run is not None:
+                wandb.finish()
+        
         return False
 
 def main():

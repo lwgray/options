@@ -34,7 +34,7 @@ def parse_args():
                         help='Directory containing the formatted Poseidon data')
     parser.add_argument('--output_dir', type=str, default='models/american_options',
                         help='Directory to save model checkpoints')
-    parser.add_argument('--model_size', type=str, default='B',
+    parser.add_argument('--model_size', type=str, default='T',
                         choices=['T', 'B', 'L'], help='Poseidon model size')
     parser.add_argument('--grid_size', type=int, default=64,
                         help='Grid size for input/output data')

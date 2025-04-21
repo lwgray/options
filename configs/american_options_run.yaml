@@ -17,9 +17,9 @@ lr_time_embedding:
 max_grad_norm:
   value: 5.0
 model_name:
-  value: B
+  value: T
 num_epochs:
-  value: 50
+  value: 25
 num_trajectories:
   value: -1
 warmup_ratio:

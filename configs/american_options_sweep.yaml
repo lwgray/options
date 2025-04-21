@@ -1,7 +1,7 @@
 method: grid
 metric:
   goal: minimize
-  name: eval/mean_relative_l1_error
+  name: eval/median_relative_l1_error
 name: american_options_lr_sweep
 parameters:
   batch_size:
@@ -32,9 +32,9 @@ parameters:
     - 0.0008
     - 0.001
   model_name:
-    value: B
+    value: T
   num_epochs:
-    value: 50
+    value: 25
   warmup_ratio:
     values:
     - 0.0

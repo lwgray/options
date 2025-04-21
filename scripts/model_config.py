@@ -1,6 +1,6 @@
 from scOT.model import ScOTConfig
 
-def get_american_option_config(grid_size=64, model_size='B'):
+def get_american_option_config(grid_size=64, model_size='L'):
     """
     Create a ScOTConfig for American option pricing
     
@@ -61,7 +61,7 @@ def get_american_option_config(grid_size=64, model_size='B'):
 
 if __name__ == "__main__":
     # Example usage
-    config = get_american_option_config(grid_size=64, model_size='B')
+    config = get_american_option_config(grid_size=64, model_size='L')
     print(f"Created configuration with {config.num_channels} input channels and {config.num_out_channels} output channels")
     print(f"Embedding dimension: {config.embed_dim}")
     print(f"Model depths: {config.depths}")

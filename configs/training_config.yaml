@@ -6,11 +6,11 @@ dataset: "american_options"
 num_trajectories: -1  # Use all available trajectories
 
 # Model architecture
-model_name: "B"  # Options: T (tiny), B (base), L (large)
+model_name: "T"  # Options: T (tiny), B (base), L (large)
 
 # Training hyperparameters
 batch_size: 16
-num_epochs: 50
+num_epochs: 25
 lr: 5e-5
 lr_embedding_recovery: 5e-4
 lr_time_embedding: 5e-4
