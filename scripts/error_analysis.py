@@ -12,8 +12,19 @@ def run_error_analysis(model_dir, data_dir, output_dir='error_analysis'):
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
     
+    # Set up device properly
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+    
+    print(f"Using device: {device}")
+    
     # Load model and dataset
     model = ScOT.from_pretrained(model_dir)
+    model = model.to(device)
     model.eval()
     dataset = AmericanOptionDataset(data_dir, split='test')
     
@@ -25,14 +36,14 @@ def run_error_analysis(model_dir, data_dir, output_dir='error_analysis'):
     with torch.no_grad():
         for i in range(len(dataset)):
             sample = dataset[i]
-            input_tensor = sample['pixel_values'].unsqueeze(0)
-            time_tensor = sample['time'].unsqueeze(0)
+            input_tensor = sample['pixel_values'].unsqueeze(0).to(device)
+            time_tensor = sample['time'].unsqueeze(0).to(device)
             
             # Run inference
             output = model(pixel_values=input_tensor, time=time_tensor)
             
             # Calculate relative error
-            pred = output.output.squeeze(0).numpy()
+            pred = output.output.squeeze(0).cpu().numpy()
             true = sample['labels'].numpy()
             
             rel_error = np.abs(pred - true) / (np.abs(true) + 1e-6) * 100
@@ -329,7 +340,7 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description='Perform error analysis on finetuned model')
-    parser.add_argument('--model_dir', type=str, required=True,
+    parser.add_argument('--model_dir', type=str, default='models/american_option_sweep/run_1_lr5e-05_emb0.002_batch16/final',
                         help='Directory containing the finetuned model')
     parser.add_argument('--data_dir', type=str, default='data/poseidon_data',
                         help='Directory containing the data')
