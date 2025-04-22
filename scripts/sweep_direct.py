@@ -95,9 +95,9 @@ def run_training(config, args, run_dir, logfile, run_index, total_runs):
             "lr_time": config["lr_time"],
             "batch_size": config["batch_size"],
             "warmup_ratio": config.get("warmup_ratio", 0.0),
-            "model_size": "T",  # Changed from "B" to match the model being loaded
+            "model_size": "T",  
             "grid_size": 64,
-            "epochs": 25,
+            "epochs": config["num_epochs"],
             "weight_decay": 1e-6,
             "run_index": run_index,
             "total_runs": total_runs,
@@ -136,7 +136,7 @@ def run_training(config, args, run_dir, logfile, run_index, total_runs):
             gradient_accumulation_steps=1,
             evaluation_strategy="epoch",
             save_strategy="epoch",
-            num_train_epochs=25,
+            num_train_epochs=config["num_epochs"],
             weight_decay=1e-6,
             load_best_model_at_end=True,
             metric_for_best_model="median_relative_l1_error",
@@ -157,7 +157,7 @@ def run_training(config, args, run_dir, logfile, run_index, total_runs):
         )
         
         # Start training
-        print(f"Starting training for 25 epochs")
+        print(f"Starting training for {config['num_epochs']} epochs")
         trainer.train()
         
         # Save final model
@@ -223,25 +223,28 @@ def main():
     args = parse_args()
     
     # Define sweep configurations
+    # sweep_configs = [
+    #     # Learning rate variations
+    #     {"lr": 1e-5, "lr_embedding": 5e-4, "lr_time": 5e-4, "batch_size": 16, "warmup_ratio": 0.0},
+    #     {"lr": 2e-5, "lr_embedding": 5e-4, "lr_time": 5e-4, "batch_size": 16, "warmup_ratio": 0.0},
+    #     {"lr": 5e-5, "lr_embedding": 5e-4, "lr_time": 5e-4, "batch_size": 16, "warmup_ratio": 0.0},
+        
+    #     # Embedding learning rate variations
+    #     {"lr": 5e-5, "lr_embedding": 1e-3, "lr_time": 5e-4, "batch_size": 16, "warmup_ratio": 0.0},
+    #     {"lr": 5e-5, "lr_embedding": 2e-3, "lr_time": 5e-4, "batch_size": 16, "warmup_ratio": 0.0},
+        
+    #     # Time embedding learning rate variations
+    #     {"lr": 5e-5, "lr_embedding": 5e-4, "lr_time": 1e-3, "batch_size": 16, "warmup_ratio": 0.0},
+        
+    #     # Warmup ratio variations
+    #     {"lr": 5e-5, "lr_embedding": 5e-4, "lr_time": 5e-4, "batch_size": 16, "warmup_ratio": 0.05},
+    #     {"lr": 5e-5, "lr_embedding": 5e-4, "lr_time": 5e-4, "batch_size": 16, "warmup_ratio": 0.1},
+        
+    #     # Batch size variations
+    #     {"lr": 5e-5, "lr_embedding": 5e-4, "lr_time": 5e-4, "batch_size": 32, "warmup_ratio": 0.0},
+    # ]
     sweep_configs = [
-        # Learning rate variations
-        {"lr": 1e-5, "lr_embedding": 5e-4, "lr_time": 5e-4, "batch_size": 16, "warmup_ratio": 0.0},
-        {"lr": 2e-5, "lr_embedding": 5e-4, "lr_time": 5e-4, "batch_size": 16, "warmup_ratio": 0.0},
-        {"lr": 5e-5, "lr_embedding": 5e-4, "lr_time": 5e-4, "batch_size": 16, "warmup_ratio": 0.0},
-        
-        # Embedding learning rate variations
-        {"lr": 5e-5, "lr_embedding": 1e-3, "lr_time": 5e-4, "batch_size": 16, "warmup_ratio": 0.0},
-        {"lr": 5e-5, "lr_embedding": 2e-3, "lr_time": 5e-4, "batch_size": 16, "warmup_ratio": 0.0},
-        
-        # Time embedding learning rate variations
-        {"lr": 5e-5, "lr_embedding": 5e-4, "lr_time": 1e-3, "batch_size": 16, "warmup_ratio": 0.0},
-        
-        # Warmup ratio variations
-        {"lr": 5e-5, "lr_embedding": 5e-4, "lr_time": 5e-4, "batch_size": 16, "warmup_ratio": 0.05},
-        {"lr": 5e-5, "lr_embedding": 5e-4, "lr_time": 5e-4, "batch_size": 16, "warmup_ratio": 0.1},
-        
-        # Batch size variations
-        {"lr": 5e-5, "lr_embedding": 5e-4, "lr_time": 5e-4, "batch_size": 32, "warmup_ratio": 0.0},
+        {"lr": 5e-05, "lr_embedding": 0.002, "lr_time": 0.0005, "batch_size": 16, "warmup_ratio": 0.05, "num_epochs": 50},
     ]
     
     # Create base output directory if it doesn't exist
@@ -253,7 +256,7 @@ def main():
     # Run each configuration
     for i, config in enumerate(sweep_configs[args.start_idx:], args.start_idx):
         # Create a run-specific output directory
-        run_dir = os.path.join(args.output_dir, f"run_{i+1}_lr{config['lr']}_emb{config['lr_embedding']}_batch{config['batch_size']}")
+        run_dir = os.path.join(args.output_dir, f"run_{i+1}_lr{config['lr']}_emb{config['lr_embedding']}_batch{config['batch_size']}_epochs{config['num_epochs']}")
         os.makedirs(run_dir, exist_ok=True)
         
         # Run the configuration
